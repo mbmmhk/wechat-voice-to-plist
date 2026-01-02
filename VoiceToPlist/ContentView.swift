@@ -11,7 +11,7 @@ import UIKit
 import PhotosUI
 
 struct ContentView: View {
-    @StateObject private var viewModel = VoiceManagerViewModel()
+    @ObservedObject var viewModel: VoiceManagerViewModel
     @State private var showOpenPicker = false
     @State private var showSavePicker = false
     @State private var showAddAudioPicker = false
@@ -22,83 +22,71 @@ struct ContentView: View {
     @State private var showRenameAlert = false
     @State private var entryToExport: AudioEntry?
 
+    init(viewModel: VoiceManagerViewModel? = nil) {
+        self._viewModel = ObservedObject(wrappedValue: viewModel ?? VoiceManagerViewModel())
+    }
+
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                // File info header
-                Text(viewModel.fileInfo)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            ZStack {
+                Color(.systemGroupedBackground)
+                    .ignoresSafeArea()
 
-                // Audio list
-                if viewModel.entries.isEmpty {
-                    emptyStateView
-                } else {
-                    audioListView
+                VStack(spacing: 0) {
+                    // File info header
+                    fileInfoHeader
+
+                    // Audio list or empty state
+                    if viewModel.entries.isEmpty {
+                        emptyStateView
+                    } else {
+                        audioListView
+                    }
+
+                    // Bottom bar
+                    bottomBar
                 }
-
-                // Hint label
-                Text("💡 点击播放 | 长按更多操作 | 拖入文件添加")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .padding(.vertical, 8)
-
-                // Control buttons
-                controlButtonsView
-
-                // Progress bar
-                if viewModel.isConverting {
-                    ProgressView(value: viewModel.conversionProgress)
-                        .padding(.horizontal)
-                        .padding(.bottom, 8)
-                }
-
-                // Status bar
-                HStack {
-                    Text(viewModel.statusMessage)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 8)
             }
-            .navigationTitle("语音包管理器")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("语音包")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Menu {
-                        Button(action: { showOpenPicker = true }) {
-                            Label("打开 plist", systemImage: "folder")
-                        }
-                        Button(action: viewModel.createNew) {
-                            Label("新建", systemImage: "doc.badge.plus")
-                        }
-                        Divider()
-                        Button(action: {
-                            if viewModel.currentPlistURL != nil {
-                                viewModel.savePlist()
-                            } else {
-                                showSavePicker = true
+                        Section {
+                            Button(action: { showOpenPicker = true }) {
+                                Label("打开 plist", systemImage: "folder")
                             }
-                        }) {
-                            Label("保存", systemImage: "square.and.arrow.down")
+                            Button(action: viewModel.createNew) {
+                                Label("新建", systemImage: "doc.badge.plus")
+                            }
                         }
-                        .disabled(viewModel.entries.isEmpty)
 
-                        Button(action: { showSavePicker = true }) {
-                            Label("另存为", systemImage: "square.and.arrow.down.on.square")
+                        Section {
+                            Button(action: {
+                                if viewModel.currentPlistURL != nil {
+                                    viewModel.savePlist()
+                                } else {
+                                    showSavePicker = true
+                                }
+                            }) {
+                                Label("保存", systemImage: "square.and.arrow.down")
+                            }
+                            .disabled(viewModel.entries.isEmpty)
+
+                            Button(action: { showSavePicker = true }) {
+                                Label("另存为", systemImage: "square.and.arrow.down.on.square")
+                            }
                         }
-                        Divider()
-                        Button(action: { showExportPicker = true }) {
-                            Label("导出所有音频", systemImage: "square.and.arrow.up")
+
+                        Section {
+                            Button(action: { showExportPicker = true }) {
+                                Label("导出所有音频", systemImage: "square.and.arrow.up")
+                            }
+                            .disabled(viewModel.entries.isEmpty)
                         }
-                        .disabled(viewModel.entries.isEmpty)
                     } label: {
                         Image(systemName: "ellipsis.circle")
+                            .font(.system(size: 17, weight: .medium))
                     }
                 }
 
@@ -111,7 +99,9 @@ struct ContentView: View {
                             Label("从相册添加", systemImage: "photo.on.rectangle")
                         }
                     } label: {
-                        Image(systemName: "plus")
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 22))
+                            .foregroundColor(.blue)
                     }
                 }
             }
@@ -183,25 +173,132 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Subviews
+    // MARK: - File Info Header
+
+    private var fileInfoHeader: some View {
+        HStack(spacing: 12) {
+            // File icon
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(viewModel.currentPlistURL != nil ?
+                          LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing) :
+                          LinearGradient(colors: [.gray.opacity(0.3), .gray.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 40, height: 40)
+
+                Image(systemName: viewModel.currentPlistURL != nil ? "doc.fill" : "doc")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(viewModel.currentPlistURL != nil ? .white : .secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                if let url = viewModel.currentPlistURL {
+                    Text(url.lastPathComponent)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .lineLimit(1)
+
+                    HStack(spacing: 4) {
+                        Text("\(viewModel.entries.count) 个音频")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        if viewModel.isModified {
+                            Text("• 未保存")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
+                    }
+                } else {
+                    Text(viewModel.entries.isEmpty ? "未打开文件" : "新建语音包")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+
+                    if !viewModel.entries.isEmpty {
+                        Text("\(viewModel.entries.count) 个音频 • 未保存")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
+                }
+            }
+
+            Spacer()
+
+            if viewModel.isLoading || viewModel.isConverting {
+                ProgressView()
+                    .scaleEffect(0.9)
+            }
+        }
+        .padding(16)
+        .background(Color(.secondarySystemGroupedBackground))
+    }
+
+    // MARK: - Empty State
 
     private var emptyStateView: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 24) {
             Spacer()
-            Image(systemName: "waveform")
-                .font(.system(size: 60))
-                .foregroundColor(.secondary)
-            Text("拖入 plist 文件或音频文件")
-                .font(.headline)
-                .foregroundColor(.secondary)
+
+            ZStack {
+                Circle()
+                    .fill(LinearGradient(
+                        colors: [Color.blue.opacity(0.1), Color.purple.opacity(0.1)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
+                    .frame(width: 120, height: 120)
+
+                Image(systemName: "waveform.circle")
+                    .font(.system(size: 60, weight: .light))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.blue, .purple],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
+
+            VStack(spacing: 8) {
+                Text("没有音频文件")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+
+                Text("拖入 plist 文件或添加音频")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+
+            VStack(spacing: 12) {
+                Button(action: { showOpenPicker = true }) {
+                    HStack {
+                        Image(systemName: "folder")
+                        Text("打开 plist 文件")
+                    }
+                    .frame(maxWidth: 200)
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button(action: { showAddAudioPicker = true }) {
+                    HStack {
+                        Image(systemName: "plus")
+                        Text("添加音频文件")
+                    }
+                    .frame(maxWidth: 200)
+                }
+                .buttonStyle(.bordered)
+            }
+
             Text("支持 MP3, WAV, M4A, AAC, MP4 等格式")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemGroupedBackground))
     }
+
+    // MARK: - Audio List
 
     private var audioListView: some View {
         List {
@@ -217,6 +314,8 @@ struct ContentView: View {
                         }
                     }
                 )
+                .listRowBackground(Color(.secondarySystemGroupedBackground))
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                 .contextMenu {
                     Button(action: {
                         if viewModel.currentlyPlaying == entry.id {
@@ -241,7 +340,6 @@ struct ContentView: View {
 
                     Button(action: {
                         entryToExport = entry
-                        // Export single entry - simplified for iOS
                         exportSingleEntry(entry)
                     }) {
                         Label("导出", systemImage: "square.and.arrow.up")
@@ -262,63 +360,115 @@ struct ContentView: View {
                         Label("删除", systemImage: "trash")
                     }
                 }
+                .swipeActions(edge: .leading) {
+                    Button {
+                        entryToRename = entry
+                        newName = entry.name
+                        showRenameAlert = true
+                    } label: {
+                        Label("重命名", systemImage: "pencil")
+                    }
+                    .tint(.orange)
+                }
             }
         }
-        .listStyle(.plain)
+        .listStyle(.insetGrouped)
     }
 
-    private var controlButtonsView: some View {
-        HStack(spacing: 12) {
-            Button(action: {
-                if viewModel.currentlyPlaying != nil {
-                    viewModel.stopPlayback()
-                } else if let first = viewModel.entries.first {
-                    viewModel.playAudio(for: first)
-                }
-            }) {
-                HStack {
-                    Image(systemName: viewModel.currentlyPlaying != nil ? "stop.fill" : "play.fill")
-                    Text(viewModel.currentlyPlaying != nil ? "停止" : "播放")
-                }
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .disabled(viewModel.entries.isEmpty)
+    // MARK: - Bottom Bar
 
-            Menu {
-                Button(action: { showAddAudioPicker = true }) {
-                    Label("从文件添加", systemImage: "folder")
-                }
-                Button(action: { showPhotoPicker = true }) {
-                    Label("从相册添加", systemImage: "photo.on.rectangle")
-                }
-            } label: {
-                HStack {
-                    Image(systemName: "plus")
-                    Text("添加")
-                }
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
+    private var bottomBar: some View {
+        VStack(spacing: 0) {
+            // Progress bar
+            if viewModel.isConverting {
+                VStack(spacing: 4) {
+                    ProgressView(value: viewModel.conversionProgress)
+                        .tint(.blue)
 
-            Button(action: {
-                if viewModel.currentPlistURL != nil {
-                    viewModel.savePlist()
-                } else {
-                    showSavePicker = true
+                    Text(viewModel.statusMessage)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
-            }) {
-                HStack {
-                    Image(systemName: "square.and.arrow.down")
-                    Text("保存")
-                }
-                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(viewModel.entries.isEmpty)
+
+            // Action buttons
+            HStack(spacing: 12) {
+                // Play/Stop button
+                Button(action: {
+                    if viewModel.currentlyPlaying != nil {
+                        viewModel.stopPlayback()
+                    } else if let first = viewModel.entries.first {
+                        viewModel.playAudio(for: first)
+                    }
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: viewModel.currentlyPlaying != nil ? "stop.fill" : "play.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text(viewModel.currentlyPlaying != nil ? "停止" : "播放")
+                            .fontWeight(.medium)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(Color(.tertiarySystemGroupedBackground))
+                    .foregroundColor(viewModel.entries.isEmpty ? .secondary : .primary)
+                    .cornerRadius(10)
+                }
+                .disabled(viewModel.entries.isEmpty)
+
+                // Add button
+                Menu {
+                    Button(action: { showAddAudioPicker = true }) {
+                        Label("从文件添加", systemImage: "folder")
+                    }
+                    Button(action: { showPhotoPicker = true }) {
+                        Label("从相册添加", systemImage: "photo.on.rectangle")
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("添加")
+                            .fontWeight(.medium)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(Color(.tertiarySystemGroupedBackground))
+                    .foregroundColor(.primary)
+                    .cornerRadius(10)
+                }
+
+                // Save button
+                Button(action: {
+                    if viewModel.currentPlistURL != nil {
+                        viewModel.savePlist()
+                    } else {
+                        showSavePicker = true
+                    }
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("保存")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(viewModel.entries.isEmpty ? Color.blue.opacity(0.5) : Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                }
+                .disabled(viewModel.entries.isEmpty)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 12)
         }
-        .padding(.horizontal)
-        .padding(.bottom, 8)
+        .background(
+            Color(.secondarySystemGroupedBackground)
+                .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: -4)
+        )
     }
 
     // MARK: - Helpers
@@ -356,7 +506,6 @@ struct ContentView: View {
             } catch {
                 await MainActor.run {
                     viewModel.showError = true
-                    // viewModel.errorMessage is set internally
                 }
             }
         }
@@ -372,25 +521,60 @@ struct AudioRowView: View {
 
     var body: some View {
         Button(action: onPlay) {
-            HStack {
-                Image(systemName: isPlaying ? "speaker.wave.3.fill" : "waveform")
-                    .foregroundColor(isPlaying ? .blue : .secondary)
-                    .frame(width: 24)
+            HStack(spacing: 12) {
+                // Play indicator
+                ZStack {
+                    Circle()
+                        .fill(isPlaying ? Color.blue : Color(.tertiarySystemGroupedBackground))
+                        .frame(width: 40, height: 40)
 
-                Text(entry.name)
-                    .foregroundColor(.primary)
+                    Image(systemName: isPlaying ? "stop.fill" : "play.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(isPlaying ? .white : .blue)
+                }
+
+                // Name and duration
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(entry.name)
+                        .font(.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+
+                    HStack(spacing: 6) {
+                        if isPlaying {
+                            Text("正在播放...")
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                        } else {
+                            // Duration badge
+                            Text(entry.shortDuration)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
 
                 Spacer()
 
-                if isPlaying {
-                    Image(systemName: "pause.circle.fill")
-                        .foregroundColor(.blue)
-                } else {
-                    Image(systemName: "play.circle")
+                // Duration on the right
+                if !isPlaying {
+                    Text(entry.formattedDuration)
+                        .font(.system(size: 14, weight: .medium, design: .monospaced))
                         .foregroundColor(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(.tertiarySystemGroupedBackground))
+                        .cornerRadius(6)
                 }
+
+                // Waveform icon
+                Image(systemName: isPlaying ? "waveform" : "waveform")
+                    .font(.system(size: 16))
+                    .foregroundColor(isPlaying ? .blue : .secondary)
+                    .opacity(isPlaying ? 1 : 0.5)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 8)
         }
         .buttonStyle(.plain)
     }
@@ -428,7 +612,7 @@ struct PlistDocument: FileDocument {
     }
 }
 
-// MARK: - Export Directory Picker (Simplified for iOS)
+// MARK: - Export Directory Picker
 
 struct ExportDirectoryPicker: View {
     let onSelect: (URL?) -> Void
@@ -436,51 +620,86 @@ struct ExportDirectoryPicker: View {
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
-                Image(systemName: "folder.badge.plus")
-                    .font(.system(size: 60))
-                    .foregroundColor(.blue)
+            VStack(spacing: 24) {
+                Spacer()
 
-                Text("导出到「文件」应用")
-                    .font(.headline)
+                ZStack {
+                    Circle()
+                        .fill(LinearGradient(
+                            colors: [Color.blue.opacity(0.1), Color.purple.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ))
+                        .frame(width: 100, height: 100)
 
-                Text("音频将被导出为 WAV 格式并保存到您选择的位置")
-                    .font(.caption)
+                    Image(systemName: "folder.badge.plus")
+                        .font(.system(size: 44, weight: .light))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.blue, .purple],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+
+                VStack(spacing: 8) {
+                    Text("导出音频")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+
+                    Text("音频将被导出为 WAV 格式\n并保存到「文件」应用")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+
+                VStack(spacing: 12) {
+                    Button(action: {
+                        let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+                        let exportURL = documentsURL.appendingPathComponent("VoiceExport_\(Date().timeIntervalSince1970)")
+                        try? FileManager.default.createDirectory(at: exportURL, withIntermediateDirectories: true)
+                        onSelect(exportURL)
+                        dismiss()
+                    }) {
+                        Text("开始导出")
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: 200)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+
+                    Button("取消") {
+                        onSelect(nil)
+                        dismiss()
+                    }
                     .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-
-                Button("选择导出位置") {
-                    // On iOS, we export to Documents directory
-                    let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-                    let exportURL = documentsURL.appendingPathComponent("VoiceExport_\(Date().timeIntervalSince1970)")
-                    try? FileManager.default.createDirectory(at: exportURL, withIntermediateDirectories: true)
-                    onSelect(exportURL)
-                    dismiss()
                 }
-                .buttonStyle(.borderedProminent)
 
-                Button("取消") {
-                    onSelect(nil)
-                    dismiss()
-                }
-                .buttonStyle(.bordered)
+                Spacer()
             }
             .padding()
             .navigationTitle("导出音频")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("取消") {
+                        onSelect(nil)
+                        dismiss()
+                    }
+                }
+            }
         }
     }
 }
 
-// MARK: - Document Picker (UIKit wrapper for selecting any file)
+// MARK: - Document Picker
 
 struct DocumentPickerView: UIViewControllerRepresentable {
     let contentTypes: [UTType]
     let onPick: (URL) -> Void
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        // Use .open mode without asCopy to get security-scoped access to the original file
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: contentTypes, asCopy: false)
         picker.delegate = context.coordinator
         picker.allowsMultipleSelection = false
@@ -508,7 +727,7 @@ struct DocumentPickerView: UIViewControllerRepresentable {
     }
 }
 
-// MARK: - Photo Picker View (for selecting videos from photo library)
+// MARK: - Photo Picker View
 
 struct PhotoPickerView: UIViewControllerRepresentable {
     let onPick: ([URL]) -> Void
@@ -517,7 +736,7 @@ struct PhotoPickerView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> PHPickerViewController {
         var config = PHPickerConfiguration()
         config.filter = .videos
-        config.selectionLimit = 0  // 0 means no limit
+        config.selectionLimit = 0
         config.preferredAssetRepresentationMode = .current
 
         let picker = PHPickerViewController(configuration: config)
@@ -557,7 +776,6 @@ struct PhotoPickerView: UIViewControllerRepresentable {
 
                     guard let url = url else { return }
 
-                    // Copy to temp directory since the provided URL is temporary
                     let tempURL = FileManager.default.temporaryDirectory
                         .appendingPathComponent(UUID().uuidString)
                         .appendingPathExtension(url.pathExtension)

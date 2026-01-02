@@ -10,9 +10,22 @@
 		92D3E1612F06A730002E6668 /* VoiceToPlist.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VoiceToPlist.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		92D3E7052F06D834002E6668 /* Exceptions for "VoiceToPlist" folder in "VoiceToPlist" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 92D3E1602F06A730002E6668 /* VoiceToPlist */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		92D3E1632F06A730002E6668 /* VoiceToPlist */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				92D3E7052F06D834002E6668 /* Exceptions for "VoiceToPlist" folder in "VoiceToPlist" target */,
+			);
 			path = VoiceToPlist;
 			sourceTree = "<group>";
 		};
@@ -256,7 +269,10 @@
 				DEVELOPMENT_TEAM = LZ2QN9SDTM;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/VoiceToPlist/SilkLib";
+				INFOPLIST_FILE = VoiceToPlist/Info.plist;
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "需要使用麦克风进行语音录制";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UIFileSharingEnabled = YES;
@@ -275,7 +291,6 @@
 				SWIFT_OBJC_BRIDGING_HEADER = "VoiceToPlist/VoiceToPlist-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				HEADER_SEARCH_PATHS = "$(SRCROOT)/VoiceToPlist/SilkLib";
 			};
 			name = Debug;
 		};
@@ -289,7 +304,10 @@
 				DEVELOPMENT_TEAM = LZ2QN9SDTM;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/VoiceToPlist/SilkLib";
+				INFOPLIST_FILE = VoiceToPlist/Info.plist;
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "需要使用麦克风进行语音录制";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UIFileSharingEnabled = YES;
@@ -308,7 +326,6 @@
 				SWIFT_OBJC_BRIDGING_HEADER = "VoiceToPlist/VoiceToPlist-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				HEADER_SEARCH_PATHS = "$(SRCROOT)/VoiceToPlist/SilkLib";
 			};
 			name = Release;
 		};
