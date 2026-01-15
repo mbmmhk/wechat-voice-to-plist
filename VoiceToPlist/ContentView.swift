@@ -90,20 +90,6 @@ struct ContentView: View {
                     }
                 }
 
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button(action: { showAddAudioPicker = true }) {
-                            Label("从文件添加", systemImage: "folder")
-                        }
-                        Button(action: { showPhotoPicker = true }) {
-                            Label("从相册添加", systemImage: "photo.on.rectangle")
-                        }
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 22))
-                            .foregroundColor(.blue)
-                    }
-                }
             }
         }
         .navigationViewStyle(.stack)

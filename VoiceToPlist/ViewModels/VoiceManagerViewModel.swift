@@ -58,6 +58,50 @@ class VoiceManagerViewModel: ObservableObject {
 
     // MARK: - Plist Operations
 
+    /// Generate duration prefix for audio name (e.g., "5秒-" or "1分23秒-")
+    private func generateDurationPrefix(for silkData: Data) -> String {
+        guard SilkCodec.isValidSilk(silkData) else { return "" }
+
+        do {
+            let pcmData = try SilkCodec.decode(silkData)
+            let samples = pcmData.count / 2
+            let duration = Double(samples) / 24000.0
+            let totalSeconds = Int(round(duration))
+
+            if totalSeconds < 60 {
+                return "\(totalSeconds)秒-"
+            } else {
+                let minutes = totalSeconds / 60
+                let seconds = totalSeconds % 60
+                if seconds == 0 {
+                    return "\(minutes)分-"
+                }
+                return "\(minutes)分\(seconds)秒-"
+            }
+        } catch {
+            return ""
+        }
+    }
+
+    /// Format name with duration prefix
+    func formatNameWithDuration(originalName: String, silkData: Data) -> String {
+        let prefix = generateDurationPrefix(for: silkData)
+        // Remove any existing duration prefix pattern
+        let cleanName = removeExistingDurationPrefix(from: originalName)
+        return prefix + cleanName
+    }
+
+    /// Remove existing duration prefix from name
+    private func removeExistingDurationPrefix(from name: String) -> String {
+        // Match patterns like "5秒-", "1分-", "1分23秒-"
+        let pattern = "^\\d+秒-|^\\d+分-|^\\d+分\\d+秒-"
+        if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
+            let range = NSRange(name.startIndex..., in: name)
+            return regex.stringByReplacingMatches(in: name, options: [], range: range, withTemplate: "")
+        }
+        return name
+    }
+
     /// Load a plist file
     func loadPlist(from url: URL) {
         isLoading = true
@@ -73,7 +117,16 @@ class VoiceManagerViewModel: ObservableObject {
                     }
                 }
 
-                let loadedEntries = try PlistManager.loadPlist(from: url)
+                var loadedEntries = try PlistManager.loadPlist(from: url)
+
+                // Add duration prefix to all entries
+                for i in 0..<loadedEntries.count {
+                    let formattedName = formatNameWithDuration(
+                        originalName: loadedEntries[i].name,
+                        silkData: loadedEntries[i].silkData
+                    )
+                    loadedEntries[i].name = formattedName
+                }
 
                 await MainActor.run {
                     self.entries = loadedEntries
@@ -246,7 +299,9 @@ class VoiceManagerViewModel: ObservableObject {
                         counter += 1
                     }
 
-                    let entry = AudioEntry(name: finalName, silkData: silkData)
+                    // Format name with duration prefix
+                    let formattedName = formatNameWithDuration(originalName: finalName, silkData: silkData)
+                    let entry = AudioEntry(name: formattedName, silkData: silkData)
 
                     await MainActor.run {
                         entries.append(entry)
@@ -267,18 +322,22 @@ class VoiceManagerViewModel: ObservableObject {
         }
     }
 
-    /// Rename an entry
+    /// Rename an entry (preserves duration prefix)
     func renameEntry(_ entry: AudioEntry, to newName: String) {
         guard !newName.isEmpty else { return }
 
+        // Remove any existing duration prefix from user input and regenerate
+        let cleanNewName = removeExistingDurationPrefix(from: newName)
+        let formattedName = formatNameWithDuration(originalName: cleanNewName, silkData: entry.silkData)
+
         // Check for duplicate names
-        if entries.contains(where: { $0.id != entry.id && $0.name == newName }) {
+        if entries.contains(where: { $0.id != entry.id && $0.name == formattedName }) {
             showError(message: "名称已存在")
             return
         }
 
         if let index = entries.firstIndex(where: { $0.id == entry.id }) {
-            entries[index].name = newName
+            entries[index].name = formattedName
             isModified = true
             statusMessage = "已重命名"
         }
